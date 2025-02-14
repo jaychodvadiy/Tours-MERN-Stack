@@ -1,3 +1,5 @@
+import User from "../models/userModel";
+
 const express = "express";
 const bcrypt = "bcrypt";
 

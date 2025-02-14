@@ -1,60 +1,94 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import User from "../models/User.js";
+import User from "../models/userModel.js";
 
 const generateToken = (user) => {
-  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_KEY, {
+  return jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
     expiresIn: "1d",
   });
 };
 
-export const register = async (req, res, next) => {
-  const { UserName, email, passwod } = req.body;
-
+// ✅ Register User
+export const register = async (req, res) => {
   try {
-    const user = await UserName.findOne({ UserName });
+    const { username, email, password } = req.body;
 
-    if (user) {
-      return res.status(400).json({
-        success: false,
-        messes: "UserName already exists. Use diffrent",
-      });
+    // ✅ Check if all fields are provided
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
     }
-    const salt = await bcrypt.genSalt(10);
-    const hashepassword = await bcrypt.hash(passwod.salt);
 
-    user = new UserName({
-      UserName,
+    // ✅ Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already in use" });
+    }
+
+    // ✅ Hash password before saving
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // ✅ Create new user with hashed password
+    const newUser = await User.create({
+      username,
       email,
-      passwod: hashepassword,
+      password: hashedPassword,
     });
-    await user.save();
-    return status(200).json({ success: true, data: user });
+
+    res
+      .status(200)
+      .json({ message: "User registered successfully", user: newUser });
   } catch (error) {
-    console.log(error);
-    return res.status(500).json({ success: false, messes: "server error" });
+    console.error("Registration error:", error); // Debugging log
+    res.status(500).json({ message: "Server error" });
   }
 };
 
-export const login = async (req, res, next) => {
+// ✅ Login User
+export const login = async (req, res) => {
+  const { email, password } = req.body;
 
-    const {email}=req.body;
+  try {
+    console.log("Login Attempt:", email);
 
-    try {
-        const user = await User.findOne({email:user}); 
+    // ✅ Check if user exists
+    const user = await User.findOne({ email });
+    console.log("User Found:", user);
 
-        if(!user){
-            return res.status(400).json({success:false, messes:"Indvalid credentails"});
-        }
-        const isPasswordMatch = await bcrypt.compare(req.body.passwod, user.passwod);
-
-        if(!isPasswordMatch){
-            return res.status(400).json({success:false, messes:"Indvadlid credentails"});
-        }
-        
-        const token = generateToken(user);
-        const {password, role, ...rest} = user._doc;
-        return res.status(200).json({success:true, messes:"User looged in successfully", token, data:{...rest},role});
-    } catch (error) {
-        
+    if (!user) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid email or password" });
     }
+
+    // ✅ Debug Password Hashing Issue
+    console.log("Stored Hashed Password:", user.password);
+    console.log("Entered Password:", password);
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    console.log("Password Match:", isMatch);
+
+    if (!isMatch) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid email or password" });
+    }
+
+    // ✅ Generate JWT Token
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "2d",
+    });
+    const { password: _, ...userData } = user._doc;
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: { id: user._id, username: user.username, email: user.email },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 };
