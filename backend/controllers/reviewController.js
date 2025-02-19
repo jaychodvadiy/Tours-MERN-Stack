@@ -1,21 +1,45 @@
-import Tour from '../models/Tour.js'
-import Review from '../models/Review.js'
-
 export const createReview = async (req, res) => {
+  console.log("Incoming Request Body:", req.body); // 🔹 Debugging log
+  console.log("Tour ID:", req.params.tourId);
 
-    const tourId=req.params.tourId
-    const newReview= new Review({ ...req.body})
+  if (!req.body || Object.keys(req.body).length === 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid JSON request" });
+  }
 
-    try{
+  const { username, reviewText, rating } = req.body;
 
-        const savedReview= await newReview.save()
-        await Tour.findByIdAndUpdate(tourId,{
-            $push:{reviews:savedReview._id}
-        })
-        res.status(200).json({success:true,message:'Review Submitted',
-      data:savedReview})
+  if (!username || !reviewText || !rating) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Missing required fields" });
+  }
 
-    }catch(err){
-       res.status(500).json({ success:false, message:"Failed to Submit"})
-    }
+  try {
+    const newReview = new Review({
+      username,
+      reviewText,
+      rating,
+      productId: req.params.tourId,
+    });
+    const savedReview = await newReview.save();
+
+    await Tour.findByIdAndUpdate(req.params.tourId, {
+      $push: { reviews: savedReview._id },
+    });
+
+    res
+      .status(200)
+      .json({ success: true, message: "Review Submitted", data: savedReview });
+  } catch (err) {
+    console.error("Review Submission Error:", err);
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to Submit",
+        error: err.message,
+      });
+  }
 };

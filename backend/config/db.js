@@ -11,6 +11,7 @@ const dbConnect = async () => {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
+
     console.log("✅ MongoDB connected successfully");
   } catch (error) {
     console.error("❌ MongoDB connection error:", error);
@@ -18,4 +19,4 @@ const dbConnect = async () => {
   }
 };
 
-module.exports = dbConnect; // Ensure correct export
+module.exports = dbConnect;
